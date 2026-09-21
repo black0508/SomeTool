@@ -1,0 +1,18 @@
+{
+    "name": "WanRen.Needle",
+    "rootNamespace": "WanRen",
+    "references": [
+        "Unity.Burst",
+        "Unity.Mathematics",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

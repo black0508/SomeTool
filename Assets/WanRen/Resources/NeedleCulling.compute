@@ -1,0 +1,95 @@
+#pragma kernel CSReset
+#pragma kernel CSCull
+#pragma kernel CSFinalize
+
+#define THREADS 256
+
+struct Needle
+{
+    float3 position;
+    float pad;
+    float4 rotation;
+};
+
+StructuredBuffer<Needle> _Needles;
+StructuredBuffer<uint> _Alive;
+StructuredBuffer<float4> _Planes;
+RWStructuredBuffer<uint> _VisibleIds;
+RWStructuredBuffer<uint> _Args;
+RWStructuredBuffer<uint> _Counter;
+
+uint _NeedleCount;
+uint _MaxVisible;
+uint _LodStride;
+float _MaxDistance;
+float _LodDistance;
+float _CullRadius;
+float3 _CameraPos;
+
+groupshared uint gCount;
+groupshared uint gBase;
+groupshared uint gIds[THREADS];
+
+bool InFrustum(float3 p)
+{
+    [unroll]
+    for (int i = 0; i < 6; i++)
+    {
+        if (dot(_Planes[i].xyz, p) + _Planes[i].w < -_CullRadius)
+            return false;
+    }
+    return true;
+}
+
+[numthreads(1, 1, 1)]
+void CSReset(uint3 id : SV_DispatchThreadID)
+{
+    _Args[1] = 0;
+    _Counter[0] = 0;
+}
+
+[numthreads(THREADS, 1, 1)]
+void CSCull(uint3 id : SV_DispatchThreadID, uint lane : SV_GroupIndex)
+{
+    if (lane == 0)
+        gCount = 0;
+    GroupMemoryBarrierWithGroupSync();
+
+    uint i = id.x;
+    bool vis = false;
+    if (i < _NeedleCount && _Alive[i] != 0)
+    {
+        float3 p = _Needles[i].position;
+        float3 d = p - _CameraPos;
+        float distSq = dot(d, d);
+        uint stride = max(_LodStride, 1);
+        vis = distSq <= _MaxDistance * _MaxDistance
+            && (distSq <= _LodDistance * _LodDistance || (i % stride) == 0)
+            && InFrustum(p);
+    }
+
+    if (vis)
+    {
+        uint local;
+        InterlockedAdd(gCount, 1, local);
+        gIds[local] = i;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    if (lane == 0)
+        InterlockedAdd(_Counter[0], gCount, gBase);
+    GroupMemoryBarrierWithGroupSync();
+
+    if (lane < gCount)
+    {
+        uint slot = gBase + lane;
+        if (slot < _MaxVisible)
+            _VisibleIds[slot] = gIds[lane];
+    }
+}
+
+[numthreads(1, 1, 1)]
+void CSFinalize(uint3 id : SV_DispatchThreadID)
+{
+    _Args[1] = min(_Counter[0], _MaxVisible);
+}

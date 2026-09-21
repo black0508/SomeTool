@@ -1,0 +1,38 @@
+---
+description: WanRen 针堆项目的架构与 C# 规范
+globs: Assets/WanRen/**/*.cs
+alwaysApply: true
+---
+
+# WanRen 规范
+
+针是数据，不是 GameObject。`NeedleStore` 用 `NativeArray` 存变换和存活位；渲染用 `DrawMeshInstancedIndirect`，交互用空间哈希。场景里长期存在的对象只有玩家、地面、可选的手里那一根针。
+
+不要给每根针加 Collider、Rigidbody、MonoBehaviour。不要每帧上传全部实例矩阵。不要为旧 API 或旧缓存格式写兼容层：改签名就改完全部调用点。
+
+## 结构
+
+- `Runtime/`：玩法与系统
+- `Shaders/`：针实例着色器
+- `Resources/`：裁剪 Compute
+- `Editor/`：仅编辑器入口
+- `Scenes/`：可玩场景
+
+一个文件一件事。只被调用一次的包装函数直接内联。新增类型放进已有职责文件，不要再拆一层 helper。
+
+## C#
+
+- 命名：类型 PascalCase，私有字段 `_camelCase`，方法动词开头。
+- 生成与打包走 Burst Job；GPU 常驻一份紧凑 Buffer，捡起只写一个 alive。
+- 数量用 `NeedleCountPreset` + `NeedleStore.CountOf`，不要魔法数字散落各处。
+- 密度用 `PileScale`（越小越密），不要另开一套生成参数。
+- 禁止引入会升级 Test Framework 的包。需要并行容器时优先 `NativeArray`，不要为了 Collections 破坏工程包版本。
+
+```csharp
+// BAD：一根针一个对象
+var go = Instantiate(needlePrefab);
+
+// GOOD：改数据，渲染自己读 Buffer
+store.Pick(id);
+render.SetAlive(store, id);
+```
