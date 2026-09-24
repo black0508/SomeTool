@@ -1,0 +1,19 @@
+{
+    "name": "Carve.Editor",
+    "rootNamespace": "Carve.Editor",
+    "references": [
+        "Carve",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
